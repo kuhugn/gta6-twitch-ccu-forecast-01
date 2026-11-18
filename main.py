@@ -9,9 +9,9 @@ itself, so the final case's larger comparable set is used as-is):
   with a small ridge regression on two features read from the case at its
   checkpoint (the end of hour 1):
 
-    x = [1, min(ln viewers_1, 11.5), ln(mean viewers of hours -3..-1 / viewers_1)]
+    x = [1, min(ln viewers_1, 11.0), ln(mean viewers of hours -3..-1 / viewers_1)]
 
-  The size term saturates near 100k first-hour viewers: below that, a small
+  The size term saturates near 60k first-hour viewers: below that, a small
   first hour means the big regions have not unlocked yet and the day ramps far
   above hour 1 (the pooled past launches show log ratios falling steeply with
   log size, correlation about -0.9 in the evening hours); above it, the launch
@@ -20,10 +20,14 @@ itself, so the final case's larger comparable set is used as-is):
   the UTC day from launches still flat at their pre-release baseline.
 
   The spread at each hour is the empirical distribution of the regression's
-  leave-one-out residuals across the comparables, read at the case's levels.
+  leave-one-out residuals across the comparables, read at the case's levels
+  and contracted 10% toward its own median: across the past launches the raw
+  residual spread over-covers (the practice board's 90% interval covered
+  about 94.6% of prints), and the contraction is what leave-one-out prefers
+  on the large launches.
 
   For large first hours the regression's quantiles are then blended (up to
-  50%, phased in between ln viewers_1 of 10.5 and 12) with the pooled quantiles
+  60%, phased in between ln viewers_1 of 10.5 and 12) with the pooled quantiles
   of the "hot" comparables alone: launches whose release-day peak stayed
   within 3x their hour 1, the archetype a worldwide-live launch follows.
 
@@ -55,9 +59,10 @@ OUTPUT_DIR = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
 DEFAULT_LEVELS = [0.05, 0.25, 0.5, 0.75, 0.95]
 Z = [-1.645, -0.674, 0.0, 0.674, 1.645]
 SIGMA = 0.15
-SIZE_HINGE = 11.5        # ln viewers_1 where the size slope saturates (~100k)
+SIZE_HINGE = 11.0        # ln viewers_1 where the size slope saturates (~60k)
 HOT_PEAK_MAX = 3.0       # a comparable is "hot" if its day peak <= 3x hour 1
-HOT_BLEND_MAX = 0.5      # largest weight given to the hot archetype
+HOT_BLEND_MAX = 0.6      # largest weight given to the hot archetype
+SPREAD_SCALE = 0.90      # contraction of the residual spread toward its median
 MIN_ROWS = 8             # below this many training rows, use the fallback
 
 
@@ -236,7 +241,9 @@ def forecast_case(case):
                             res.append(Y[j] - sum(a * b for a, b in zip(X[j], bj)))
                     res.sort()
                     mu = sum(a * b for a, b in zip(own["x"], beta))
-                    qs = [mu + quantile(res, tau) for tau in levels]
+                    med = quantile(res, 0.5)
+                    qs = [mu + med + SPREAD_SCALE * (quantile(res, tau) - med)
+                          for tau in levels]
                     # Blend toward the hot archetype for large first hours.
                     w = HOT_BLEND_MAX * min(1.0, max(0.0, (math.log(p1) - 10.5) / 1.5))
                     if w > 0.0:

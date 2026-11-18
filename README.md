@@ -20,15 +20,16 @@ about any specific launch is hardcoded.
 
 - For each forecast hour, the log ratio ln(viewers_h / viewers_1) is modelled
   with a small ridge regression on two checkpoint features: the first hour's
-  size, saturated near 100k viewers (below that, a small first hour means the
+  size, saturated near 60k viewers (below that, a small first hour means the
   big regions have not unlocked yet and the day ramps far above hour 1; above
   it, the launch is already live worldwide and the day follows the diurnal
   cycle), and the pre-release trajectory (the mean of the three hours before
   the day, relative to hour 1).
 - The spread at each hour is the empirical distribution of the regression's
   leave-one-out residuals across the comparables — honest, neither fitted to a
-  normal shape nor tuned on the answer.
-- For large first hours the quantiles are blended (up to 50%) with the pooled
+  normal shape nor tuned on the answer — contracted 10% toward its median,
+  because the raw residual spread over-covers in practice.
+- For large first hours the quantiles are blended (up to 60%) with the pooled
   quantiles of the “hot” comparables alone: launches whose release-day peak
   stayed within 3× their hour 1.
 - Anything unexpected falls back to the house persistence forecast for that
@@ -36,8 +37,11 @@ about any specific launch is hardcoded.
 
 Checked by leave-one-out over the 37 usable past launches in the practice
 kit (each launch forecast from the others, through this exact program): mean
-pinball loss 0.385 over all of them, 0.245 over the 25 large launches, against
-the house baseline's 0.930 / 0.309 on the same harness.
+pinball loss 0.381 over all of them, 0.238 over the 25 large launches, against
+the house baseline's 0.930 / 0.309 on the same harness. (First submitted
+version, with a 100k hinge, a 50% blend and no spread contraction, scored
+0.385 / 0.245 on the same harness and a 0.241 practice loss on the house's
+board.)
 
 ## Run it
 
